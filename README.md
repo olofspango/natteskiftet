@@ -11,6 +11,7 @@ npm install
 cp .env.example .env        # lim inn ANTHROPIC_API_KEY
 npm start                   # kjører eksempelalarmen (betaling kl 03:12)
 npm start -- "ALARM kl 03:40: api-gateway gir 17 % 504"
+npm run web                 # samme agent i nettleseren: http://localhost:3000
 ```
 
 Agenten har bare ett verktøy fra start (`sok_i_logger`). Resten er stubber dere fyller inn.

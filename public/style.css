@@ -1,0 +1,388 @@
+/* Natteskiftet – skrekk møter monsterkamp. */
+:root {
+  --natt: #07060b;
+  --panel: #120e1a;
+  --panel-lys: #1c1626;
+  --bein: #e8e2d0;
+  --dim: #9a90a8;
+  --blod: #d2223c;
+  --blod-mørk: #5c0a16;
+  --gift: #8fd14f;
+  --lilla: #6b3fa0;
+  --gul: #e9c46a;
+  --tåke: rgba(170, 180, 200, 0.08);
+  --piksel: 'Press Start 2P', ui-monospace, monospace;
+  --terminal: 'VT323', ui-monospace, monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body { margin: 0; min-height: 100%; }
+body {
+  background: radial-gradient(ellipse at 50% 0%, #1b1030 0%, var(--natt) 60%) fixed, var(--natt);
+  color: var(--bein);
+  font-family: var(--terminal);
+  font-size: 22px;
+  line-height: 1.25;
+  overflow-x: hidden;
+}
+
+/* CRT: skannelinjer, vignett og flimmer over alt */
+body::before, body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+}
+body::before {
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px);
+  animation: flimmer 6s infinite steps(1);
+}
+body::after { background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.75) 100%); }
+
+@keyframes flimmer {
+  0%, 100% { opacity: 1; }
+  41% { opacity: 0.75; }
+  42% { opacity: 1; }
+  77% { opacity: 0.85; }
+  78% { opacity: 1; }
+}
+
+button {
+  font-family: var(--piksel);
+  font-size: 12px;
+  color: var(--bein);
+  background: var(--panel-lys);
+  border: 3px solid var(--bein);
+  padding: 10px 14px;
+  cursor: pointer;
+  box-shadow: 4px 4px 0 #000;
+}
+button:hover { background: var(--blod-mørk); }
+button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
+:focus-visible { outline: 3px dashed var(--gift); outline-offset: 3px; }
+button.sekundær { border-color: var(--dim); color: var(--dim); }
+
+.sr {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+.klokke {
+  position: fixed; top: 12px; left: 16px; z-index: 50;
+  font-family: var(--piksel); font-size: 14px; color: var(--blod);
+  text-shadow: 0 0 8px var(--blod);
+  animation: blink 2s infinite steps(1);
+}
+.lyd-knapp { position: fixed; top: 8px; right: 16px; z-index: 50; font-size: 10px; padding: 6px 8px; }
+
+@keyframes blink { 50% { opacity: 0.35; } }
+
+/* ---------- Himmel, måne og tåke ---------- */
+.himmel { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.måne {
+  position: absolute; top: 8%; right: 12%;
+  width: 110px; height: 110px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f6efd2, #cdbf96 60%, #8c7e5a);
+  box-shadow: 0 0 60px 10px rgba(246, 239, 210, 0.25);
+}
+.måne::after { /* en sky som skjærer gjennom */
+  content: ''; position: absolute; left: -30%; top: 55%; width: 160%; height: 18px;
+  background: var(--natt); border-radius: 9px; opacity: 0.85;
+}
+.måne.liten { width: 56px; height: 56px; top: 6%; right: auto; left: 46%; opacity: 0.7; }
+.måne.liten::after { height: 9px; }
+
+.tåke {
+  position: absolute; left: -50%; width: 200%; height: 40%;
+  background: radial-gradient(ellipse at 20% 50%, var(--tåke), transparent 60%),
+              radial-gradient(ellipse at 70% 60%, var(--tåke), transparent 55%);
+  animation: drift 40s linear infinite;
+}
+.tåke.t1 { bottom: 0; }
+.tåke.t2 { bottom: 15%; animation-duration: 65s; animation-direction: reverse; opacity: 0.7; }
+.tåke.t3 { bottom: 35%; animation-duration: 90s; opacity: 0.5; }
+@keyframes drift { from { transform: translateX(0); } to { transform: translateX(25%); } }
+
+/* ---------- Skjermer ---------- */
+.skjerm { position: relative; min-height: 100vh; }
+
+#tittel { display: grid; place-items: center; text-align: center; overflow: hidden; }
+.tittel-innhold { position: relative; padding: 16px; }
+
+.drypp {
+  font-family: var(--piksel);
+  font-size: clamp(22px, 7vw, 64px);
+  color: var(--blod);
+  margin: 0 0 24px;
+  letter-spacing: 2px;
+  text-shadow: 3px 3px 0 #000, 0 0 18px rgba(210, 34, 60, 0.6);
+}
+.drypp span { position: relative; display: inline-block; }
+.drypp span::after { /* bloddråpene */
+  content: '';
+  position: absolute; left: var(--x, 40%); top: 85%;
+  width: 0.14em; height: var(--d, 0);
+  background: linear-gradient(var(--blod), var(--blod-mørk));
+  border-radius: 0 0 0.1em 0.1em;
+  animation: drypp 4s ease-in infinite;
+  animation-delay: var(--f, 0s);
+}
+@keyframes drypp {
+  0% { transform: scaleY(0.2); transform-origin: top; }
+  60%, 100% { transform: scaleY(1); transform-origin: top; }
+}
+
+.undertittel { color: var(--dim); font-size: 26px; margin: 24px 0 40px; }
+.start-knapp {
+  font-size: 16px; border: none; background: none; box-shadow: none;
+  color: var(--bein); animation: blink 1.2s infinite steps(1);
+}
+.start-knapp:hover { background: none; color: var(--gift); }
+
+/* ---------- Velg alarm ---------- */
+#velg { overflow: hidden; }
+.velg-innhold { position: relative; max-width: 1080px; margin: 0 auto; padding: 64px 16px 40px; }
+.velg-innhold h2 { font-family: var(--piksel); font-size: clamp(14px, 3vw, 22px); color: var(--gift); text-shadow: 2px 2px 0 #000; }
+.hint { color: var(--dim); margin-top: -6px; }
+
+.alarmer {
+  list-style: none; padding: 0; margin: 24px 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px;
+}
+.alarmer .laster, .alarmer .feil { grid-column: 1 / -1; color: var(--dim); }
+.alarmer .feil { color: var(--blod); }
+
+.alarmkort {
+  width: 100%; height: 100%; text-align: left; font-family: var(--terminal); font-size: 20px;
+  display: grid; grid-template-columns: 96px 1fr; gap: 4px 14px; align-items: start;
+  background: linear-gradient(160deg, var(--panel-lys), var(--panel));
+  padding: 14px;
+}
+.alarmkort:hover { background: linear-gradient(160deg, #2a1424, var(--panel)); transform: translateY(-2px); }
+.alarmkort canvas { grid-row: span 4; width: 96px; height: 96px; image-rendering: pixelated; animation: svev 3s ease-in-out infinite; }
+.alarmkort .kort-navn { font-family: var(--piksel); font-size: 11px; line-height: 1.5; word-break: break-word; }
+.alarmkort .kort-tittel { color: var(--bein); }
+.alarmkort .kort-tid { color: var(--dim); font-size: 18px; }
+
+.typemerke {
+  display: inline-block; font-family: var(--piksel); font-size: 9px; padding: 3px 6px;
+  border: 2px solid currentColor; width: max-content;
+}
+.typemerke.blod { color: #ff5a70; background: rgba(210, 34, 60, 0.2); }
+.typemerke.skygge { color: #b597ff; background: rgba(107, 63, 160, 0.25); }
+.typemerke.tåke { color: #b7d6bd; background: rgba(143, 174, 148, 0.2); }
+
+.egen { margin-top: 32px; }
+.egen label { display: block; color: var(--dim); margin-bottom: 8px; }
+.egen-rad { display: flex; gap: 10px; flex-wrap: wrap; }
+.egen input {
+  flex: 1 1 260px; min-width: 0; font-family: var(--terminal); font-size: 22px;
+  background: var(--natt); color: var(--bein); border: 3px solid var(--dim); padding: 8px 10px;
+}
+.egen input:focus { border-color: var(--gift); outline: none; }
+
+/* ---------- Kampen ---------- */
+#kamp {
+  display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px;
+  max-width: 1280px; margin: 0 auto; padding: 48px 16px 16px;
+}
+.kamp-hoved { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.kamp-topp { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.kamp-id { font-family: var(--piksel); font-size: 10px; color: var(--dim); }
+.flykt { font-size: 10px; padding: 6px 10px; }
+
+.arena {
+  position: relative; overflow: hidden;
+  aspect-ratio: 16 / 9; min-height: 300px;
+  border: 4px solid var(--bein); box-shadow: 6px 6px 0 #000;
+  background:
+    linear-gradient(to bottom, #120a22 0%, #24123a 55%, #0f1a12 56%, #07100a 100%);
+}
+.arena .tåke { height: 50%; }
+
+.infoboks {
+  position: absolute; z-index: 3;
+  width: min(46%, 300px);
+  background: var(--panel); border: 3px solid var(--bein);
+  border-radius: 4px 18px 4px 18px; padding: 8px 12px;
+  box-shadow: 4px 4px 0 #000;
+  display: grid; gap: 4px;
+}
+.fiende-info { top: 6%; left: 3%; }
+.spiller-info { bottom: 6%; right: 3%; }
+.info-navn { display: flex; justify-content: space-between; gap: 8px; font-family: var(--piksel); font-size: clamp(8px, 1.2vw, 11px); }
+.nivå { color: var(--gul); white-space: nowrap; }
+
+.bar-rad { display: flex; align-items: center; gap: 6px; }
+.bar-etikett { font-family: var(--piksel); font-size: 7px; color: var(--gul); }
+.bar { flex: 1; height: 10px; background: #2b2233; border: 2px solid #000; }
+.fyll { height: 100%; width: 100%; background: var(--gift); transition: width 0.8s steps(12), background-color 0.4s; }
+.fyll.middels { background: var(--gul); }
+.fyll.lav { background: var(--blod); }
+.bar-tall { text-align: right; font-size: 18px; color: var(--dim); }
+
+.plass { position: absolute; z-index: 2; display: grid; place-items: center; }
+.fiende-plass { top: 12%; right: 6%; width: 34%; }
+.spiller-plass { bottom: 4%; left: 6%; width: 34%; }
+.plattform {
+  position: absolute; bottom: 4%; width: 100%; aspect-ratio: 4 / 1; border-radius: 50%;
+  background: radial-gradient(ellipse, #2c4a2a 0%, #16251a 60%, transparent 72%);
+  box-shadow: 0 0 30px rgba(143, 209, 79, 0.15);
+}
+.sprite { position: relative; image-rendering: pixelated; width: 60%; aspect-ratio: 1; }
+.fiende-sprite { filter: drop-shadow(0 0 10px rgba(210, 34, 60, 0.5)); animation: svev 2.6s ease-in-out infinite; }
+.spiller-sprite { width: 66%; filter: drop-shadow(6px 0 12px rgba(255, 211, 107, 0.45)); animation: lykt 3s infinite; }
+
+@keyframes svev { 50% { transform: translateY(-6%); } }
+@keyframes lykt {
+  0%, 100% { filter: drop-shadow(6px 0 12px rgba(255, 211, 107, 0.45)); }
+  50% { filter: drop-shadow(6px 0 18px rgba(255, 211, 107, 0.7)); }
+  52% { filter: drop-shadow(6px 0 6px rgba(255, 211, 107, 0.25)); }
+}
+
+/* Inngang, treff og besvimelse */
+.kamp-i-gang .fiende-plass { animation: inn-høyre 0.7s steps(8) both; }
+.kamp-i-gang .spiller-plass { animation: inn-venstre 0.7s steps(8) both; }
+@keyframes inn-høyre { from { transform: translateX(120%); } }
+@keyframes inn-venstre { from { transform: translateX(-120%); } }
+
+.fiende-sprite.treff { animation: treff 0.5s steps(2) 3; }
+@keyframes treff { 50% { opacity: 0.1; } }
+.fiende-sprite.besvimt { animation: besvim 1.2s ease-in forwards; }
+@keyframes besvim { to { transform: translateY(40%) scaleY(0.2); opacity: 0; filter: grayscale(1); } }
+
+.rist { animation: rist 0.4s steps(6); }
+@keyframes rist {
+  20% { transform: translate(-6px, 2px); }
+  40% { transform: translate(5px, -3px); }
+  60% { transform: translate(-4px, -2px); }
+  80% { transform: translate(3px, 3px); }
+}
+
+/* Dialogboksen */
+.dialog {
+  position: relative; min-height: 112px;
+  background: var(--panel); border: 4px double var(--bein);
+  outline: 3px solid #000; box-shadow: 6px 6px 0 #000;
+  padding: 14px 40px 14px 18px;
+}
+.dialog-tekst { margin: 0; font-size: 26px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dialog-tekst.tanke { color: var(--dim); font-style: italic; }
+.dialog-tekst.fare { color: #ff6b80; }
+.dialog-tekst.godt { color: var(--gift); }
+.dialog-pil { position: absolute; right: 14px; bottom: 10px; color: var(--blod); animation: blink 0.8s infinite steps(1); }
+
+/* Angrepsmenyen */
+.meny { background: var(--panel); border: 3px solid var(--dim); padding: 10px 12px; }
+.meny-tittel { font-family: var(--piksel); font-size: 10px; margin: 0 0 8px; color: var(--gul); }
+.meny-tittel small { color: var(--dim); font-size: 8px; }
+.angrep { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.angrep li {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  border: 2px solid #3a3045; padding: 6px 10px; font-size: 20px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.angrep li::before { content: '▸'; color: transparent; }
+.angrep li .angrep-navn { flex: 1; overflow-wrap: anywhere; }
+.angrep li .angrep-type { font-family: var(--piksel); font-size: 7px; color: var(--dim); }
+.angrep li .brukt { font-size: 18px; color: var(--gul); }
+.angrep li.inaktiv { opacity: 0.35; text-decoration: line-through; }
+.angrep li.aktiv { border-color: var(--gift); background: rgba(143, 209, 79, 0.15); }
+.angrep li.aktiv::before { color: var(--gift); }
+
+/* Kamploggen */
+.logg {
+  background: var(--panel); border: 3px solid var(--dim); padding: 10px 12px;
+  display: flex; flex-direction: column; min-height: 0; max-height: calc(100vh - 64px);
+  position: sticky; top: 48px;
+}
+.logg h3 { font-family: var(--piksel); font-size: 10px; margin: 0 0 8px; color: var(--gul); }
+.logg-liste { list-style: none; margin: 0; padding: 0 4px 0 0; overflow-y: auto; font-size: 19px; display: grid; gap: 8px; }
+.logg-liste li { border-left: 3px solid #3a3045; padding: 2px 0 2px 8px; overflow-wrap: anywhere; }
+.logg-liste .runde { border: none; padding: 0; color: var(--dim); font-family: var(--piksel); font-size: 8px; text-align: center; }
+.logg-liste .tanke { color: var(--dim); font-style: italic; white-space: pre-wrap; }
+.logg-liste .kall { border-left-color: var(--gul); }
+.logg-liste .kall.ok { border-left-color: var(--gift); }
+.logg-liste .kall.bom { border-left-color: var(--blod); }
+.logg-liste .info { color: var(--dim); }
+.logg-liste .kall-navn { font-family: var(--piksel); font-size: 9px; color: var(--gul); }
+.logg-liste pre {
+  margin: 4px 0 0; padding: 6px; background: var(--natt); border: 1px solid #2b2233;
+  font-family: var(--terminal); font-size: 17px; white-space: pre-wrap; overflow-wrap: anywhere;
+  max-height: 260px; overflow: auto;
+}
+.logg-liste details summary { cursor: pointer; color: var(--gift); margin-top: 4px; }
+.logg-liste .bom summary { color: #ff6b80; }
+.logg-liste .venter { color: var(--dim); animation: blink 1s infinite steps(1); }
+
+/* Overgang inn i kampen */
+.overgang {
+  position: fixed; inset: 0; z-index: 90; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, #000 0 24px, var(--blod-mørk) 24px 48px);
+  animation: overgang 0.9s steps(9) forwards;
+}
+@keyframes overgang {
+  0% { clip-path: inset(0 100% 0 0); }
+  45% { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(0 0 0 100%); }
+}
+
+/* Sluttskjermen */
+.slutt {
+  position: fixed; inset: 0; z-index: 80;
+  display: grid; place-items: center; padding: 16px;
+  background: rgba(4, 3, 8, 0.82);
+}
+.slutt-boks {
+  width: min(860px, 100%); max-height: calc(100vh - 32px); overflow-y: auto;
+  background: var(--panel); border: 4px double var(--bein); outline: 3px solid #000;
+  box-shadow: 8px 8px 0 #000; padding: 20px 24px;
+}
+.slutt h2 { font-family: var(--piksel); font-size: clamp(14px, 3vw, 22px); margin: 0 0 8px; line-height: 1.5; }
+.slutt.seier h2 { color: var(--gift); text-shadow: 0 0 12px rgba(143, 209, 79, 0.5); }
+.slutt.tap h2 { color: var(--blod); text-shadow: 0 0 12px rgba(210, 34, 60, 0.6); }
+.slutt-under { color: var(--dim); margin: 0 0 16px; }
+.slutt-knapper { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+
+.rapport { border-top: 2px dashed #3a3045; padding-top: 8px; overflow-wrap: anywhere; }
+.rapport:empty { display: none; }
+.rapport h3, .rapport h4, .rapport h5, .rapport h6 { font-family: var(--piksel); font-size: 11px; color: var(--gul); margin: 18px 0 8px; line-height: 1.5; }
+.rapport p { margin: 8px 0; }
+.rapport ul, .rapport ol { margin: 8px 0; padding-left: 26px; }
+.rapport strong { color: #fff; }
+.rapport code { background: var(--natt); padding: 0 4px; color: var(--gift); }
+.rapport pre { background: var(--natt); padding: 8px; overflow-x: auto; border: 1px solid #2b2233; }
+.rapport pre code { padding: 0; color: var(--bein); }
+.rapport hr { border: none; border-top: 2px dashed #3a3045; }
+.rapport .tabell { overflow-x: auto; }
+.rapport table { border-collapse: collapse; margin: 8px 0; }
+.rapport th, .rapport td { border: 1px solid #3a3045; padding: 4px 8px; text-align: left; vertical-align: top; }
+.rapport th { color: var(--gul); }
+
+/* ---------- Smal skjerm ---------- */
+@media (max-width: 900px) {
+  #kamp { grid-template-columns: minmax(0, 1fr); }
+  .logg { position: static; max-height: 60vh; }
+}
+@media (max-width: 560px) {
+  body { font-size: 20px; }
+  .arena { aspect-ratio: auto; height: 300px; }
+  .infoboks { width: 56%; padding: 6px 8px; }
+  .fiende-plass { top: 30%; right: 2%; width: 40%; }
+  .spiller-plass { bottom: 2%; left: 2%; width: 40%; }
+  .angrep { grid-template-columns: minmax(0, 1fr); }
+  .dialog-tekst { font-size: 22px; }
+  .alarmkort { grid-template-columns: 72px 1fr; }
+  .alarmkort canvas { width: 72px; height: 72px; }
+  .måne { width: 70px; height: 70px; }
+}
+
+/* ---------- Mindre bevegelse ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .fiende-sprite.besvimt { opacity: 0.15; filter: grayscale(1); }
+}

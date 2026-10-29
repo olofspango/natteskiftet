@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Natteskiftet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="klokke" aria-hidden="true">03:12</div>
+  <button id="lyd" class="lyd-knapp" type="button" aria-pressed="false">🔇 LYD AV</button>
+
+  <!-- Tittelskjerm -->
+  <section id="tittel" class="skjerm">
+    <div class="himmel" aria-hidden="true">
+      <div class="måne"></div>
+      <div class="tåke t1"></div><div class="tåke t2"></div><div class="tåke t3"></div>
+    </div>
+    <div class="tittel-innhold">
+      <h1 class="drypp" aria-label="Natteskiftet">NATTESKIFTET</h1>
+      <p class="undertittel">Natt til 29. oktober. Fem alarmer. Ingen andre er våkne.</p>
+      <button id="start" class="start-knapp" type="button">▶ TRYKK START</button>
+    </div>
+  </section>
+
+  <!-- Velg alarm -->
+  <section id="velg" class="skjerm" hidden>
+    <div class="himmel" aria-hidden="true"><div class="tåke t1"></div><div class="tåke t2"></div></div>
+    <div class="velg-innhold">
+      <h2>Noe rører seg i mørket…</h2>
+      <p class="hint">Velg en alarm. NATTEVAKT tar den første vakta.</p>
+      <ul id="alarmer" class="alarmer" aria-live="polite"><li class="laster">Lytter etter alarmer…</li></ul>
+      <form id="egen" class="egen">
+        <label for="egen-tekst">…eller man fram din egen alarm:</label>
+        <div class="egen-rad">
+          <input id="egen-tekst" type="text" autocomplete="off" maxlength="400"
+                 placeholder="ALARM kl 03:40: api-gateway gir 17 % 504">
+          <button type="submit">MAN FRAM</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Kampen -->
+  <section id="kamp" class="skjerm" hidden>
+    <div class="kamp-hoved">
+      <header class="kamp-topp">
+        <span id="kamp-id" class="kamp-id"></span>
+        <button id="flykt" class="flykt" type="button">FLYKT</button>
+      </header>
+
+      <div class="arena" aria-hidden="true">
+        <div class="måne liten"></div>
+        <div class="tåke t1"></div><div class="tåke t2"></div>
+
+        <div class="infoboks fiende-info">
+          <div class="info-navn"><span id="fiende-navn"></span><span id="fiende-nivå" class="nivå"></span></div>
+          <span id="fiende-type" class="typemerke"></span>
+          <div class="bar-rad"><span class="bar-etikett">UVISSHET</span>
+            <div class="bar"><div id="uvisshet-fyll" class="fyll"></div></div></div>
+          <div id="uvisshet-tall" class="bar-tall"></div>
+        </div>
+        <div class="plass fiende-plass">
+          <div class="plattform"></div>
+          <canvas id="fiende-sprite" class="sprite fiende-sprite" width="16" height="16"></canvas>
+        </div>
+
+        <div class="plass spiller-plass">
+          <div class="plattform"></div>
+          <canvas id="spiller-sprite" class="sprite spiller-sprite" width="16" height="16"></canvas>
+        </div>
+        <div class="infoboks spiller-info">
+          <div class="info-navn"><span>NATTEVAKT</span><span class="nivå">Lv 3</span></div>
+          <div class="bar-rad"><span class="bar-etikett">VÅKEN</span>
+            <div class="bar"><div id="våken-fyll" class="fyll"></div></div></div>
+          <div id="våken-tall" class="bar-tall"></div>
+        </div>
+      </div>
+
+      <div class="dialog">
+        <p id="dialog-tekst" class="dialog-tekst" aria-hidden="true"></p>
+        <span id="dialog-pil" class="dialog-pil" aria-hidden="true">▼</span>
+        <p id="dialog-sr" class="sr" aria-live="polite"></p>
+      </div>
+
+      <div class="meny">
+        <h3 class="meny-tittel">ANGREP <small>(NATTEVAKT velger selv)</small></h3>
+        <ul id="angrep" class="angrep"></ul>
+      </div>
+    </div>
+
+    <aside class="logg">
+      <h3>KAMPLOGG</h3>
+      <ol id="logg" class="logg-liste" tabindex="-1"></ol>
+    </aside>
+
+    <div id="overgang" class="overgang" hidden></div>
+
+    <div id="slutt" class="slutt" hidden>
+      <div class="slutt-boks" role="dialog" aria-modal="true" aria-labelledby="slutt-tittel">
+        <h2 id="slutt-tittel"></h2>
+        <p id="slutt-under" class="slutt-under"></p>
+        <div id="rapport" class="rapport"></div>
+        <div class="slutt-knapper">
+          <button id="ny-vakt" type="button">NY VAKT</button>
+          <button id="se-logg" type="button" class="sekundær">SE KAMPLOGGEN</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</body>
+</html>
