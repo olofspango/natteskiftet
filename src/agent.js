@@ -102,6 +102,7 @@ async function kjørVerktøy(etterNavn, kall) {
     const resultat = await v.kjør(kall.input);
     const tekst = typeof resultat === 'string' ? resultat : JSON.stringify(resultat, null, 2);
     console.log(grønn(`  ✓ ${tekst.length} tegn tilbake`));
+    // console.log(tekst)
     return { type: 'tool_result', tool_use_id: kall.id, content: tekst };
   } catch (e) {
     return feil(kall, e.message);

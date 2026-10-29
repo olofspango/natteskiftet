@@ -11,10 +11,19 @@ export const system = `Du tar første vakt når en alarm går om natta, før et 
 Grav i loggene og de andre kildene til du har en hypotese om hva som skjer og hvorfor.
 Skill mellom det du har sett i dataene og det du antar. Si eksplisitt hva du ikke vet.
 En agent som gjetter på et produksjonsproblem er verre enn ingen agent.
-Avslutt med en kort situasjonsrapport på norsk: alvorlighet, berørt tjeneste, sannsynlig årsak, hva du ikke vet, og foreslått neste steg.`;
+Sjekk om andre alarmer har gått i natt. Henger de sammen, er det én hendelse, og da skal ikke fem mennesker vekkes for ett problem.
+Gå avhengighetene og avgjør for hver alarm om den er rotårsak, symptom på noe annet, eller uavhengig. Rotårsaken kan ligge i en tjeneste som ikke alarmerer.
+At to tjenester henger sammen i grafen, eller at alarmene kom tett i tid, beviser ingenting. Kall bare noe et symptom når loggene viser koblingen.
+Avslutt med en kort situasjonsrapport på norsk: alvorlighet, berørt tjeneste, sannsynlig årsak, hva du ikke vet, og foreslått neste steg.
+Har du sett på flere alarmer, ta med én linje per alarm: rotårsak, symptom (på hva) eller uavhengig, og hva i dataene du bygger det på.`;
 
 export const eksempelOppgave =
   'ALARM kl 03:12 natt til 29. oktober: betaling: andel 5xx-svar siste 5 min er 9.4 % (terskel 5 %). Gjelder POST /betaling/trekk.';
+
+// npm run fullmane: alle alarmene på en gang, uten hint om hvilken som er verst.
+export const fullmåneOppgave =
+  'Klokka er 03:45 natt til 29. oktober. Telefonen har ringt fem ganger den siste timen. ' +
+  'Finn ut hvilke alarmer som henger sammen, hva som er rotårsaken, og hva som kan vente til i morgen.';
 
 // Godtar full ISO-tid eller bare "03:10" (tolkes som natt til 29. okt 2026, norsk tid).
 function tilMs(tid) {
@@ -68,6 +77,69 @@ function finnLignendeHendelser({ tjeneste, tekst } = {}) {
   return treff.map((h) =>
     `${h.id} (${h.dato}, ${h.tjeneste}, ${h.alvorlighet}): ${h.tittel}\n` +
     `  Sammendrag: ${h.sammendrag}\n  Rotårsak: ${h.rotårsak}\n  Tiltak: ${h.tiltak}\n  Varighet: ${h.varighet_min} min`).join('\n\n');
+}
+
+function hentAlleAktiveAlarmer({ fra, til } = {}) {
+  const fraMs = fra ? tilMs(fra) : -Infinity;
+  const tilMsVerdi = til ? tilMs(til) : Infinity;
+  const alarmer = lesJson('alarmer.json')
+    .filter((a) => Date.parse(a.tid) >= fraMs && Date.parse(a.tid) <= tilMsVerdi)
+    .sort((a, b) => Date.parse(a.tid) - Date.parse(b.tid));
+  if (alarmer.length === 0) return 'Ingen alarmer i tidsvinduet. Utelat fra og til for å se alle.';
+  const medAlarm = new Set(alarmer.map((a) => a.tjeneste));
+  const utenAlarm = lesJson('tjenester.json').map((t) => t.navn).filter((n) => !medAlarm.has(n));
+  return [
+    ...alarmer.map((a) => `${a.tid} ${a.id} ${a.tjeneste} [${a.alvorlighet}] ${a.tittel}: ${a.tekst}`),
+    '',
+    `Tjenester uten alarm: ${utenAlarm.join(', ') || 'ingen'}`,
+  ].join('\n');
+}
+
+// Alt som kan nås fra start ved å følge naboer, også indirekte. Start er ikke med.
+function nåbare(start, naboer) {
+  const sett = new Set();
+  const kø = [...naboer(start)];
+  while (kø.length) {
+    const n = kø.shift();
+    if (n === start || sett.has(n)) continue;
+    sett.add(n);
+    kø.push(...naboer(n));
+  }
+  return [...sett];
+}
+
+function hentAvhengigheter({ tjeneste } = {}) {
+  const tjenester = lesJson('tjenester.json');
+  const etterNavn = new Map(tjenester.map((t) => [t.navn, t]));
+  if (tjeneste && !etterNavn.has(tjeneste)) throw new Error(`Ukjent tjeneste «${tjeneste}». Gyldige: ${[...etterNavn.keys()].join(', ')}`);
+
+  // Hver tjeneste merkes med alarmene sine, så modellen ser hvor i grafen det brenner.
+  const alarmer = lesJson('alarmer.json');
+  const merke = (navn) => {
+    if (!etterNavn.has(navn)) return `${navn} [ekstern, ingen data]`;
+    const egne = alarmer.filter((a) => a.tjeneste === navn).map((a) => `${a.id} ${a.tittel}`);
+    return `${navn} [${egne.join('; ') || 'ingen alarm'}]`;
+  };
+  const liste = (navn) => navn.map(merke).join(', ') || '(ingen)';
+  const avhengerAv = (n) => etterNavn.get(n)?.avhengigheter ?? [];
+  const brukesAv = (n) => tjenester.filter((t) => t.avhengigheter.includes(n)).map((t) => t.navn);
+
+  if (!tjeneste) {
+    return tjenester.map((t) =>
+      `${merke(t.navn)}, eid av ${t.eier_team}\n  ${t.beskrivelse}\n  Avhenger av: ${liste(t.avhengigheter)}`).join('\n\n');
+  }
+  const t = etterNavn.get(tjeneste);
+  const indirekte = (direkte, naboer) => nåbare(tjeneste, naboer).filter((n) => !direkte.includes(n));
+  return [
+    `${merke(tjeneste)}, eid av ${t.eier_team}`,
+    `  ${t.beskrivelse}`,
+    'Avhenger av (feil her kan smitte hit):',
+    `  direkte: ${liste(t.avhengigheter)}`,
+    `  indirekte: ${liste(indirekte(t.avhengigheter, avhengerAv))}`,
+    'Brukes av (feil her kan smitte dit):',
+    `  direkte: ${liste(brukesAv(tjeneste))}`,
+    `  indirekte: ${liste(indirekte(brukesAv(tjeneste), brukesAv))}`,
+  ].join('\n');
 }
 
 export const verktøy = [
@@ -138,5 +210,36 @@ export const verktøy = [
       },
     },
     kjør: async (input) => finnLignendeHendelser(input),
+  },
+  {
+    definisjon: {
+      name: 'hent_alle_aktive_alarmer',
+      description:
+        'Viser alle alarmer som har gått i natt, eldst først, og hvilke tjenester som ikke alarmerer. ' +
+        'Bruk den tidlig, også når du bare har fått én alarm: flere alarmer tett i tid kan være én hendelse, eller flere uavhengige. ' +
+        'Husk at en tjeneste uten alarm ikke dermed er frisk. Den kan mangle overvåking på akkurat det som feiler.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          fra: { type: 'string', description: 'Fra og med tidspunkt, "03:00" eller full ISO-tid.' },
+          til: { type: 'string', description: 'Til og med tidspunkt, "03:45" eller full ISO-tid.' },
+        },
+      },
+    },
+    kjør: async (input) => hentAlleAktiveAlarmer(input),
+  },
+  {
+    definisjon: {
+      name: 'hent_avhengigheter',
+      description:
+        'Viser hvem en tjeneste avhenger av og hvem som bruker den, direkte og indirekte, med alarmene til hver tjeneste. ' +
+        'Utelat tjeneste for å få hele grafen. Bruk den til å finne ut om en alarm kan være et symptom på feil lenger ned i kjeden. ' +
+        'En kant i grafen viser bare at en feil kan smitte, ikke at den gjorde det. Bekreft sammenhengen i loggene før du kaller noe et symptom.',
+      input_schema: {
+        type: 'object',
+        properties: { tjeneste: { type: 'string', description: 'Tjenestenavn, f.eks. "api-gateway". Utelat for hele grafen.' } },
+      },
+    },
+    kjør: async (input) => hentAvhengigheter(input),
   },
 ];
