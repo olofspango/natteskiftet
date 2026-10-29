@@ -148,42 +148,6 @@ function tegn(lerret, rutenett, farger) {
   }));
 }
 
-// ---------- Lyd (av som standard) ----------
-
-const lyd = { på: false, ctx: null };
-
-function tone(frekvens, varighet = 0.08, forsinkelse = 0, type = 'square', volum = 0.03) {
-  if (!lyd.på) return;
-  lyd.ctx ??= new AudioContext();
-  const t = lyd.ctx.currentTime + forsinkelse;
-  const osc = lyd.ctx.createOscillator();
-  const gain = lyd.ctx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(frekvens, t);
-  gain.gain.setValueAtTime(volum, t);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + varighet);
-  osc.connect(gain).connect(lyd.ctx.destination);
-  osc.start(t);
-  osc.stop(t + varighet);
-}
-
-const lyder = {
-  blipp: () => tone(660, 0.025, 0, 'square', 0.015),
-  møte: () => [220, 207, 196, 185].forEach((f, i) => tone(f, 0.18, i * 0.16, 'sawtooth')),
-  treff: () => { tone(330, 0.06); tone(494, 0.1, 0.06); },
-  bom: () => tone(90, 0.3, 0, 'sawtooth', 0.05),
-  seier: () => [392, 494, 587, 784].forEach((f, i) => tone(f, 0.2, i * 0.14)),
-  tap: () => [330, 311, 294, 220].forEach((f, i) => tone(f, 0.3, i * 0.22, 'triangle', 0.05)),
-};
-
-function byttLyd() {
-  lyd.på = !lyd.på;
-  const knapp = $('#lyd');
-  knapp.textContent = lyd.på ? '🔊 LYD PÅ' : '🔇 LYD AV';
-  knapp.setAttribute('aria-pressed', String(lyd.på));
-  if (lyd.på) lyder.treff();
-}
-
 // ---------- Dialogboksen ----------
 
 const dialog = { kø: [], aktiv: false, ventere: [] };
@@ -212,7 +176,7 @@ async function spillDialog() {
       const tegnene = [...tekst];
       for (let i = 0; i < tegnene.length && nr === kampNr; i++) {
         boks.textContent += tegnene[i];
-        if (i % 3 === 0) lyder.blipp();
+        if (i % 3 === 0) lyder.blipp(klasse);
         await vent(fart);
       }
     }
@@ -251,6 +215,7 @@ function lagTittel() {
 
 async function visVelg() {
   visSkjerm('velg');
+  spillMusikk('natt');
   const liste = $('#alarmer');
   try {
     const svar = await fetch('/api/alarmer');
@@ -309,7 +274,11 @@ function alarmkort(fiende) {
     lag('span', 'kort-tid', `kl ${fiende.klokka} · ${fiende.tjeneste}`),
   );
   knapp.setAttribute('aria-label', `${fiende.navn}, ${fiende.type}: ${fiende.tittel}, kl ${fiende.klokka}`);
-  knapp.addEventListener('click', () => startKamp(fiende));
+  knapp.addEventListener('pointerenter', lyder.hover);
+  knapp.addEventListener('click', () => {
+    lyder.velg();
+    startKamp(fiende);
+  });
   li.append(knapp);
   return li;
 }
@@ -345,13 +314,17 @@ async function startKamp(fiende) {
   visSkjerm('kamp');
   const kampEl = $('#kamp');
   kampEl.classList.remove('kamp-i-gang');
+  spillMusikk(null);
+  settSpenning(false);
+  lyder.møte();
   if (!roligBevegelse.matches) {
     const overgang = $('#overgang');
     overgang.hidden = false;
-    lyder.møte();
     await vent(900);
     overgang.hidden = true;
   }
+  if (kamp.nr !== kampNr) return; // flyktet under overgangen
+  spillMusikk('kamp');
   void kampEl.offsetWidth; // start inngangsanimasjonen på nytt
   kampEl.classList.add('kamp-i-gang');
   $('#flykt').focus();
@@ -395,6 +368,8 @@ function håndter(h) {
       break;
     case 'runde':
       oppdaterVåken(Math.max(kamp.maks - h.nr, 0), kamp.maks);
+      lyder.tikk();
+      if (kamp.våken <= 2) setTimeout(lyder.hjerteslag, 450);
       logg('runde', `— RUNDE ${h.nr} —`);
       break;
     case 'tekst':
@@ -432,6 +407,7 @@ function angrep({ id, navn, input }) {
     meny.querySelector('.brukt').textContent = `×${kamp.brukt.get(navn)}`;
     setTimeout(() => meny.classList.remove('aktiv'), 1600);
   }
+  lyder.kall();
   si(`NATTEVAKT brukte ${angrepsnavn(navn)}!`);
 }
 
@@ -466,13 +442,16 @@ async function avslutt(h) {
   const navn = kamp.fiende.navn;
 
   let slutt;
+  if (h.grunn !== 'avbrutt') spillMusikk(null);
   if (h.type === 'feil') {
     blink($('#kamp'), 'rist');
+    lyder.skrik();
     si(`Et mørkt vesen kuttet tråden: ${kort(h.melding, 120)}`, 'fare');
     slutt = { seier: false, tittel: 'NATTEVAKT BESVIMTE…', under: `Noe gikk galt underveis: ${h.melding}` };
   } else if (h.grunn === 'end_turn') {
     oppdaterUvisshet(0);
     $('#fiende-sprite').classList.add('besvimt');
+    lyder.besvim();
     si(`Den ville ${navn} løste seg opp i tåka!`, 'godt');
     slutt = { seier: true, tittel: 'UVISSHETEN ER FORVIST!', under: `${navn} er beseiret. Her er situasjonsrapporten:` };
   } else if (h.grunn === 'max_iterasjoner') {
@@ -502,11 +481,12 @@ function visSlutt({ seier, tittel, under }, rapport) {
   $('#slutt-under').textContent = rapport || seier ? under : under.replace(/:$/, '.');
   $('#rapport').innerHTML = markdown(rapport);
   slutt.hidden = false;
-  (seier ? lyder.seier : lyder.tap)();
+  spillMusikk(seier ? 'seier' : 'tap');
   $('#ny-vakt').focus();
 }
 
 function flykt() {
+  lyder.velg();
   if (kamp && !kamp.ferdig) {
     stoppKilde();
     logg('info', 'Du flyktet. Agenten ble stoppet.');
@@ -528,6 +508,7 @@ function oppdaterUvisshet(verdi) {
   // Uvissheten går ikke helt til null før rapporten er skrevet.
   kamp.uvisshet = verdi === 0 ? 0 : Math.min(100, Math.max(6, verdi));
   settBar($('#uvisshet-fyll'), kamp.uvisshet, 100);
+  settSpenning(kamp.uvisshet > 0 && kamp.uvisshet <= 40);
   $('#uvisshet-tall').textContent = `${kamp.uvisshet}/100`;
 }
 
@@ -656,18 +637,22 @@ function markdown(md) {
 // ---------- Oppstart ----------
 
 function init() {
+  initLyd(); // først, så lyden vekkes før de andre lytterne på tastetrykk kjører
   lagTittel();
   tegn($('#spiller-sprite'), SPILLER, SPILLERFARGER);
   lastAngrep();
 
-  const start = () => { if (!$('#tittel').hidden) visVelg(); };
+  const start = () => {
+    if ($('#tittel').hidden) return;
+    lyder.start();
+    visVelg();
+  };
   $('#start').addEventListener('click', start);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !$('#tittel').hidden && e.target === document.body) start();
   });
   $('#start').focus();
 
-  $('#lyd').addEventListener('click', byttLyd);
   $('#flykt').addEventListener('click', flykt);
   $('#ny-vakt').addEventListener('click', flykt);
   $('#se-logg').addEventListener('click', () => {
@@ -677,7 +662,9 @@ function init() {
   $('#egen').addEventListener('submit', (e) => {
     e.preventDefault();
     const tekst = $('#egen-tekst').value.trim();
-    if (tekst) startKamp(fiendeFraTekst(tekst));
+    if (!tekst) return;
+    lyder.velg();
+    startKamp(fiendeFraTekst(tekst));
   });
 }
 

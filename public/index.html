@@ -8,11 +8,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="lyd.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
   <div class="klokke" aria-hidden="true">03:12</div>
-  <button id="lyd" class="lyd-knapp" type="button" aria-pressed="false">🔇 LYD AV</button>
+  <div class="lydknapper">
+    <button id="musikk" type="button" aria-pressed="true">🎵 MUSIKK PÅ</button>
+    <button id="effekter" type="button" aria-pressed="true">🔊 EFFEKTER PÅ</button>
+  </div>
 
   <!-- Tittelskjerm -->
   <section id="tittel" class="skjerm">
