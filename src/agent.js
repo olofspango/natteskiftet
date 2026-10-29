@@ -2,12 +2,12 @@
 // den ber om, send resultatene tilbake, gjenta til den er ferdig.
 import Anthropic from '@anthropic-ai/sdk';
 
-const MODELL = process.env.MODELL ?? 'claude-sonnet-5-5';
+export const MODELL = process.env.MODELL ?? 'claude-sonnet-5-5';
 
 // Stopper en agent som går i ring før den brenner opp kostnadstaket.
 const MAX_ITERASJONER = Number(process.env.MAX_ITERASJONER ?? 10);
 
-const klient = new Anthropic();
+export const klient = new Anthropic();
 
 const grå = (t) => `\x1b[90m${t}\x1b[0m`;
 const oransje = (t) => `\x1b[38;5;208m${t}\x1b[0m`;

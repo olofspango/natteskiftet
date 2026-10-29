@@ -291,6 +291,7 @@ async function startKamp(fiende) {
   kamp = {
     nr: kampNr, fiende, kilde: null, ferdig: false,
     uvisshet: 100, maks: 10, våken: 10, brukt: new Map(), treff: 0, kall: new Map(),
+    spor: new Map(), runder: 0, rapport: '', postmortem: '',
   };
   dialog.kø.length = 0;
 
@@ -367,6 +368,7 @@ function håndter(h) {
       logg('info', `Modell: ${h.modell} · maks ${h.maksIterasjoner} runder`);
       break;
     case 'runde':
+      kamp.runder = h.nr;
       oppdaterVåken(Math.max(kamp.maks - h.nr, 0), kamp.maks);
       lyder.tikk();
       if (kamp.våken <= 2) setTimeout(lyder.hjerteslag, 450);
@@ -399,6 +401,7 @@ function angrep({ id, navn, input }) {
   li.append(lag('div', 'kall-navn', `▸ ${angrepsnavn(navn)}`), lag('pre', '', JSON.stringify(input ?? {}, null, 1)), lag('div', 'venter', 'venter på svar…'));
   leggTilLogg(li);
   kamp.kall.set(id, li);
+  kamp.spor.set(id, { navn, input, ok: false, tekst: '' }); // grunnlaget for post-mortem
 
   kamp.brukt.set(navn, (kamp.brukt.get(navn) ?? 0) + 1);
   const meny = document.querySelector(`#angrep li[data-navn="${CSS.escape(navn)}"]`);
@@ -412,6 +415,8 @@ function angrep({ id, navn, input }) {
 }
 
 function resultat({ id, ok, tekst }) {
+  const spor = kamp.spor.get(id);
+  if (spor) Object.assign(spor, { ok, tekst: String(tekst ?? '') });
   const li = kamp.kall.get(id);
   if (li) {
     li.classList.add(ok ? 'ok' : 'bom');
@@ -480,9 +485,169 @@ function visSlutt({ seier, tittel, under }, rapport) {
   $('#slutt-tittel').textContent = tittel;
   $('#slutt-under').textContent = rapport || seier ? under : under.replace(/:$/, '.');
   $('#rapport').innerHTML = markdown(rapport);
+  kamp.rapport = rapport;
+  kamp.postmortem = '';
+  $('#slutt-innhold').hidden = !rapport;
+  $('#postmortem').hidden = !rapport;
+  $('#pm-resultat').hidden = true;
+  $('#pm-status').textContent = '';
+  $('#pm-notater').value = '';
+  $('#lag-pm').disabled = false;
+  $('#lag-pm').textContent = '📜 LAG POST-MORTEM';
   slutt.hidden = false;
   spillMusikk(seier ? 'seier' : 'tap');
   $('#ny-vakt').focus();
+  if (rapport) lastDashbord(kamp.nr, rapport);
+}
+
+// ---------- Dashbordet og post-mortem ----------
+
+async function postJson(url, kropp) {
+  const svar = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(kropp),
+  });
+  const data = await svar.json().catch(() => ({}));
+  if (!svar.ok) throw new Error(data.feil ?? `HTTP ${svar.status}`);
+  return data;
+}
+
+async function lastDashbord(nr, rapport) {
+  const el = $('#dashbord');
+  el.replaceChildren(lag('p', 'dash-laster', 'NATTEVAKT samler trådene…'));
+  try {
+    const d = await postJson('/api/dashbord', { rapport });
+    if (kamp?.nr === nr) visDashbord(d);
+  } catch (e) {
+    if (kamp?.nr === nr) el.replaceChildren(lag('p', 'dash-feil', `Fikk ikke laget oppsummeringen (${e.message}). Hele rapporten står til høyre.`));
+  }
+}
+
+const SIKKERHET = { høy: 3, middels: 2, lav: 1, 'ikke oppgitt': 0 };
+const ROLLER = { rotårsak: 'ROTÅRSAK', symptom: 'SYMPTOM', uavhengig: 'UAVHENGIG', uavklart: 'UAVKLART' };
+
+function flis(etikett, ...innhold) {
+  const div = lag('div', 'flis');
+  div.append(lag('span', 'flis-etikett', etikett), ...innhold);
+  return div;
+}
+
+function punktliste(tittel, klasse, punkter, tom) {
+  const boks = lag('div', `dash-boks ${klasse}`);
+  const ul = lag('ul');
+  ul.append(...(punkter.length ? punkter : [tom]).map((p) => lag('li', punkter.length ? '' : 'tom', p)));
+  boks.append(lag('h4', '', tittel), ul);
+  return boks;
+}
+
+function visDashbord(d) {
+  const alvor = lag('span', `alvor ${d.alvorlighet}`, d.alvorlighet.toUpperCase());
+  const alvorTekst = d.alvorlighet_tekst && d.alvorlighet_tekst.toLowerCase() !== d.alvorlighet ? lag('span', 'flis-under', d.alvorlighet_tekst) : '';
+
+  const pips = lag('span', 'pips');
+  pips.setAttribute('aria-hidden', 'true');
+  for (let i = 1; i <= 3; i++) pips.append(lag('i', i <= (SIKKERHET[d.sikkerhet] ?? 0) ? 'på' : ''));
+  const sikkerhet = lag('span', 'flis-verdi', d.sikkerhet.toUpperCase());
+
+  const kall = [...kamp.spor.values()];
+  const bommet = kall.filter((s) => !s.ok).length;
+
+  const fliser = lag('div', 'fliser');
+  fliser.append(
+    flis('ALVORLIGHET', alvor, alvorTekst),
+    flis('BERØRT', lag('span', 'flis-verdi', d.berørte_tjenester.join(', ') || 'ukjent')),
+    flis('SIKKERHET PÅ ÅRSAK', pips, sikkerhet),
+    flis('VEKK', lag('span', 'flis-verdi', d.hvem_vekkes || 'ikke oppgitt')),
+    flis('UNDERSØKT', lag('span', 'flis-verdi', `${kall.length} kall · ${kamp.runder} runder`), bommet ? lag('span', 'flis-under', `${bommet} bommet`) : ''),
+  );
+
+  const årsak = lag('div', 'dash-boks årsak');
+  årsak.append(lag('h4', '', 'SANNSYNLIG ÅRSAK'), lag('p', '', d.sannsynlig_årsak || 'ukjent'));
+
+  const deler = [lag('h3', 'dash-tittel', d.tittel), fliser, årsak];
+
+  if (d.alarmer.length) {
+    const boks = lag('div', 'dash-boks');
+    const ul = lag('ul', 'alarmroller');
+    ul.append(...d.alarmer.map((a) => {
+      const li = lag('li');
+      li.append(
+        lag('span', `rolle ${a.rolle}`, ROLLER[a.rolle] ?? a.rolle.toUpperCase()),
+        lag('span', 'alarm-navn', [a.id, a.tjeneste].filter(Boolean).join(' · ')),
+        lag('span', 'alarm-grunn', a.begrunnelse),
+      );
+      return li;
+    }));
+    boks.append(lag('h4', '', 'ALARMENE'), ul);
+    deler.push(boks);
+  }
+
+  const kunnskap = lag('div', 'kunnskap');
+  kunnskap.append(
+    punktliste('✓ SETT I DATAENE', 'sett', d.sett_i_dataene, 'Ingenting oppgitt.'),
+    punktliste('? ANTATT', 'antatt', d.antakelser, 'Ingen antakelser oppgitt.'),
+    punktliste('✖ VET IKKE', 'ukjent', d.vet_ikke, 'Rapporten sier ikke hva den ikke vet. Vær skeptisk.'),
+  );
+  deler.push(kunnskap);
+
+  const steg = lag('div', 'dash-boks steg');
+  const ol = lag('ol');
+  ol.append(...(d.neste_steg.length ? d.neste_steg : ['Ingen neste steg oppgitt.']).map((s) => lag('li', '', s)));
+  steg.append(lag('h4', '', 'NESTE STEG'), ol);
+  deler.push(steg);
+
+  $('#dashbord').replaceChildren(...deler);
+}
+
+async function lagPostMortem() {
+  const nr = kamp.nr;
+  const knapp = $('#lag-pm');
+  const status = $('#pm-status');
+  lyder.velg();
+  knapp.disabled = true;
+  status.className = 'pm-status venter';
+  status.textContent = 'NATTEVAKT skriver post-mortem…';
+  try {
+    const { markdown: md, kuttet } = await postJson('/api/postmortem', {
+      oppgave: kamp.fiende.oppgave,
+      rapport: kamp.rapport,
+      spor: [...kamp.spor.values()],
+      notater: $('#pm-notater').value,
+    });
+    if (kamp?.nr !== nr) return;
+    kamp.postmortem = md;
+    $('#pm-tekst').innerHTML = markdown(md);
+    $('#pm-resultat').hidden = false;
+    status.className = 'pm-status';
+    status.textContent = kuttet ? 'Ferdig, men teksten ble kuttet (max_tokens).' : 'Ferdig. Les gjennom før du deler den.';
+    knapp.textContent = '📜 LAG PÅ NYTT';
+    lyder.treff();
+    $('#pm-resultat').scrollIntoView({ behavior: roligBevegelse.matches ? 'auto' : 'smooth', block: 'start' });
+  } catch (e) {
+    if (kamp?.nr !== nr) return;
+    status.className = 'pm-status feil';
+    status.textContent = `Fikk ikke laget post-mortem: ${e.message}`;
+    lyder.bom();
+  } finally {
+    if (kamp?.nr === nr) knapp.disabled = false;
+  }
+}
+
+function lastNedPostMortem() {
+  const url = URL.createObjectURL(new Blob([kamp.postmortem], { type: 'text/markdown;charset=utf-8' }));
+  const a = Object.assign(lag('a'), { href: url, download: `postmortem-${kamp.fiende.id}.md` });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function kopierPostMortem() {
+  try {
+    await navigator.clipboard.writeText(kamp.postmortem);
+    $('#pm-status').textContent = 'Kopiert til utklippstavla.';
+  } catch {
+    $('#pm-status').textContent = 'Fikk ikke kopiert. Bruk LAST NED i stedet.';
+  }
 }
 
 function flykt() {
@@ -659,6 +824,9 @@ function init() {
     $('#slutt').hidden = true;
     $('#logg').focus();
   });
+  $('#lag-pm').addEventListener('click', lagPostMortem);
+  $('#pm-last-ned').addEventListener('click', lastNedPostMortem);
+  $('#pm-kopier').addEventListener('click', kopierPostMortem);
   $('#egen').addEventListener('submit', (e) => {
     e.preventDefault();
     const tekst = $('#egen-tekst').value.trim();

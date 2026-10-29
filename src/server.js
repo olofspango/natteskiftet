@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { kjørAgent } from './agent.js';
 import { system, eksempelOppgave, verktøy } from './verktoy.js';
+import { lagDashbord, lagPostMortem } from './rapport.js';
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error('Mangler ANTHROPIC_API_KEY. Kopier .env.example til .env og lim inn nøkkelen.');
@@ -88,8 +89,33 @@ async function kjør(req, res, oppgave) {
   }
 }
 
+const MAKS_KROPP = 1_000_000;
+
+async function lesJsonKropp(req) {
+  let kropp = '';
+  for await (const bit of req) {
+    kropp += bit;
+    if (kropp.length > MAKS_KROPP) throw new Error('For stor forespørsel.');
+  }
+  return JSON.parse(kropp || '{}');
+}
+
+// POST /api/dashbord og /api/postmortem: JSON inn, JSON ut.
+async function svarJson(req, res, lag) {
+  try {
+    const resultat = await lag(await lesJsonKropp(req));
+    send(res, 200, TYPER['.json'], JSON.stringify(resultat));
+  } catch (e) {
+    console.error(`✖ ${e.message}`);
+    send(res, 500, TYPER['.json'], JSON.stringify({ feil: e.message }));
+  }
+}
+
+const POST = { '/api/dashbord': lagDashbord, '/api/postmortem': lagPostMortem };
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
+  if (req.method === 'POST' && POST[url.pathname]) return svarJson(req, res, POST[url.pathname]);
   if (req.method !== 'GET') return send(res, 405, 'text/plain; charset=utf-8', 'Bare GET her.');
 
   if (url.pathname === '/api/alarmer') return sendFil(res, ALARMER);

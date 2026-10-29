@@ -108,7 +108,30 @@
       <div class="slutt-boks" role="dialog" aria-modal="true" aria-labelledby="slutt-tittel">
         <h2 id="slutt-tittel"></h2>
         <p id="slutt-under" class="slutt-under"></p>
-        <div id="rapport" class="rapport"></div>
+        <div id="slutt-innhold" class="slutt-innhold">
+          <section id="dashbord" class="dashbord" aria-live="polite" aria-label="Oppsummering"></section>
+          <aside class="full-rapport" aria-labelledby="full-rapport-tittel">
+            <h3 id="full-rapport-tittel">HELE RAPPORTEN</h3>
+            <div id="rapport" class="rapport"></div>
+          </aside>
+        </div>
+        <section id="postmortem" class="postmortem" aria-labelledby="pm-tittel">
+          <h3 id="pm-tittel">NÅR HENDELSEN ER OVER</h3>
+          <label for="pm-notater">Hva ble gjort, og når var det løst? (valgfritt, men uten dette blir løsningen stående som ukjent)</label>
+          <textarea id="pm-notater" rows="3" maxlength="4000"
+                    placeholder="F.eks. «Rullet tilbake kl 03:41. Feilraten normal igjen kl 03:44.»"></textarea>
+          <div class="pm-rad">
+            <button id="lag-pm" type="button">📜 LAG POST-MORTEM</button>
+            <span id="pm-status" class="pm-status" aria-live="polite"></span>
+          </div>
+          <div id="pm-resultat" class="pm-resultat" hidden>
+            <div class="pm-rad">
+              <button id="pm-last-ned" type="button">⬇ LAST NED .MD</button>
+              <button id="pm-kopier" type="button" class="sekundær">KOPIER</button>
+            </div>
+            <div id="pm-tekst" class="rapport"></div>
+          </div>
+        </section>
         <div class="slutt-knapper">
           <button id="ny-vakt" type="button">NY VAKT</button>
           <button id="se-logg" type="button" class="sekundær">SE KAMPLOGGEN</button>
