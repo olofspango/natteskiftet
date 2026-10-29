@@ -23,6 +23,7 @@ const TREFFLINJER = ['Det var supereffektivt!', 'Et spor lyser opp i mørket!', 
 
 let kamp = null;
 let kampNr = 0;
+let tjenester = []; // eier-team og vaktpersoner, fra /api/tjenester
 
 // ---------- Små hjelpere ----------
 
@@ -565,7 +566,7 @@ function visDashbord(d) {
   const årsak = lag('div', 'dash-boks årsak');
   årsak.append(lag('h4', '', 'SANNSYNLIG ÅRSAK'), lag('p', '', d.sannsynlig_årsak || 'ukjent'));
 
-  const deler = [lag('h3', 'dash-tittel', d.tittel), fliser, årsak];
+  const deler = [lag('h3', 'dash-tittel', d.tittel), fliser, årsak, ringeboks(d)];
 
   if (d.alarmer.length) {
     const boks = lag('div', 'dash-boks');
@@ -598,6 +599,71 @@ function visDashbord(d) {
   deler.push(steg);
 
   $('#dashbord').replaceChildren(...deler);
+}
+
+// Tjenestene rotårsakene ligger i først, så resten av de berørte.
+function tjenesterÅRinge(d) {
+  const etterNavn = new Map(tjenester.map((t) => [t.navn, t]));
+  const navn = [
+    ...d.alarmer.filter((a) => a.rolle === 'rotårsak').map((a) => a.tjeneste),
+    ...d.alarmer.map((a) => a.tjeneste),
+    ...d.berørte_tjenester,
+  ];
+  const valgte = [...new Set(navn)].filter((n) => etterNavn.has(n)).map((n) => etterNavn.get(n));
+  return valgte.length ? valgte : tjenester;
+}
+
+function ringeboks(d) {
+  const boks = lag('div', 'dash-boks ring');
+  boks.append(lag('h4', '', '📞 RING TJENESTEEIER'));
+  if (!tjenester.length) {
+    boks.append(lag('p', 'tom', 'Fant ikke vaktlista (data/tjenester.json).'));
+    return boks;
+  }
+  const ul = lag('ul', 'vaktliste');
+  ul.append(...tjenesterÅRinge(d).map((t) => {
+    const li = lag('li');
+    const hvem = lag('div', 'vakt-hvem');
+    hvem.append(lag('span', 'vakt-tjeneste', t.navn), lag('span', 'vakt-team', t.eier_team));
+    if (d.hvem_vekkes.includes(t.eier_team)) hvem.append(lag('span', 'anbefalt', 'ANBEFALT'));
+    li.append(hvem, ringeknapp(t, 'primær'), ringeknapp(t, 'sekundær'));
+    return li;
+  }));
+  const status = lag('p', 'ring-status');
+  status.setAttribute('aria-live', 'polite');
+  boks.append(ul, status, lag('p', 'ring-hint','Simulert: dataene har ingen telefonnumre. Den du ringer, havner i notatene til post-mortem.'));
+  return boks;
+}
+
+function ringeknapp(t, rolle) {
+  const person = t.vakt[rolle];
+  const knapp = lag('button', `ringeknapp ${rolle === 'sekundær' ? 'sekundær' : ''}`);
+  knapp.type = 'button';
+  knapp.append(lag('span', 'ring-rolle', rolle.toUpperCase()), lag('span', 'ring-navn', person));
+  knapp.setAttribute('aria-label', `Ring ${person}, ${rolle} vakt i ${t.eier_team}`);
+  knapp.addEventListener('click', () => ring(knapp, t, rolle));
+  return knapp;
+}
+
+async function ring(knapp, t, rolle) {
+  const nr = kamp.nr;
+  const person = t.vakt[rolle];
+  knapp.disabled = true;
+  knapp.classList.add('ringer');
+  knapp.querySelector('.ring-rolle').textContent = 'RINGER…';
+  for (let i = 0; i < 3 && kamp?.nr === nr; i++) {
+    lyder.ring();
+    await vent(1100);
+  }
+  if (kamp?.nr !== nr) return;
+  knapp.classList.replace('ringer', 'ringt');
+  knapp.querySelector('.ring-rolle').textContent = `✓ RINGT ${rolle.toUpperCase()}`;
+  knapp.disabled = false;
+
+  const notat = `Ringte ${person} (${rolle} vakt, ${t.eier_team}) om ${t.navn}.`;
+  const felt = $('#pm-notater');
+  if (!felt.value.includes(notat)) felt.value = [felt.value.trim(), notat].filter(Boolean).join('\n');
+  knapp.closest('.ring').querySelector('.ring-status').textContent = notat;
 }
 
 async function lagPostMortem() {
@@ -806,6 +872,7 @@ function init() {
   lagTittel();
   tegn($('#spiller-sprite'), SPILLER, SPILLERFARGER);
   lastAngrep();
+  fetch('/api/tjenester').then((s) => (s.ok ? s.json() : [])).then((t) => { tjenester = t; }).catch(() => {});
 
   const start = () => {
     if ($('#tittel').hidden) return;

@@ -430,6 +430,24 @@ button.sekundær { border-color: var(--dim); color: var(--dim); }
 .kunnskap li { font-size: 19px; }
 .steg ol li::marker { color: var(--gul); font-family: var(--piksel); font-size: 10px; }
 
+/* Ring tjenesteeier */
+.ring { border-color: var(--gul); }
+.vaktliste { list-style: none; padding: 0 !important; display: grid; gap: 8px; }
+.vaktliste li { display: grid; grid-template-columns: minmax(0, 1fr) repeat(2, minmax(0, 190px)); gap: 8px; align-items: center; margin: 0 !important; }
+.vakt-hvem { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
+.vakt-tjeneste { color: #fff; }
+.vakt-team { color: var(--dim); font-size: 19px; }
+.anbefalt { font-family: var(--piksel); font-size: 7px; color: var(--gift); border: 2px solid currentColor; padding: 2px 4px; }
+.ringeknapp { display: grid; gap: 4px; text-align: left; padding: 6px 10px; box-shadow: 3px 3px 0 #000; }
+.ringeknapp .ring-rolle { font-size: 7px; color: var(--gul); }
+.ringeknapp .ring-navn { font-family: var(--terminal); font-size: 19px; color: var(--bein); }
+.ringeknapp.ringer { border-color: var(--gul); animation: rist 0.4s steps(6) infinite; cursor: wait; }
+.ringeknapp.ringt { border-color: var(--gift); }
+.ringeknapp.ringt .ring-rolle { color: var(--gift); }
+.ring-status { color: var(--gift); margin: 6px 0 0 !important; }
+.ring-status:empty { display: none; }
+.ring-hint { color: var(--dim); font-size: 17px; margin-top: 6px !important; }
+
 /* Post-mortem */
 .postmortem { margin-top: 16px; border-top: 2px dashed #3a3045; padding-top: 12px; display: grid; gap: 8px; }
 .postmortem h3 { font-family: var(--piksel); font-size: 11px; color: var(--gul); margin: 0; }
@@ -454,6 +472,10 @@ button:disabled { opacity: 0.5; cursor: wait; }
   .slutt-innhold { grid-template-columns: minmax(0, 1fr); }
   .full-rapport { position: static; max-height: 40vh; }
   .kunnskap { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .vaktliste li { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vakt-hvem { grid-column: 1 / -1; }
 }
 @media (max-width: 560px) {
   body { font-size: 20px; }

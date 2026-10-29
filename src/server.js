@@ -18,6 +18,7 @@ const PORT = process.env.PORT ?? 3000;
 const ROT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(ROT, 'public');
 const ALARMER = path.join(ROT, 'data', 'alarmer.json');
+const TJENESTER = path.join(ROT, 'data', 'tjenester.json');
 
 const TYPER = {
   '.html': 'text/html; charset=utf-8',
@@ -119,6 +120,7 @@ const server = http.createServer((req, res) => {
   if (req.method !== 'GET') return send(res, 405, 'text/plain; charset=utf-8', 'Bare GET her.');
 
   if (url.pathname === '/api/alarmer') return sendFil(res, ALARMER);
+  if (url.pathname === '/api/tjenester') return sendFil(res, TJENESTER);
   if (url.pathname === '/api/verktoy') return send(res, 200, TYPER['.json'], JSON.stringify(listVerktøy()));
   if (url.pathname === '/api/kjor') {
     const oppgave = url.searchParams.get('oppgave')?.trim() || eksempelOppgave;

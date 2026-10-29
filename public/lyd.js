@@ -153,6 +153,13 @@ const lyder = {
     tone({ frekvens: 900, tilFrekvens: 50, start: t, varighet: 1.2, volum: 0.12, buss: b, vibrato: 60, hold: 0.6 });
     sus({ start: t, varighet: 1.2, volum: 0.12, buss: b, filter: 'lowpass', frekvens: 3000, tilFrekvens: 100 });
   }),
+  // Gammeldags telefonringing: to korte triller
+  ring: () => effekt((t, b) => {
+    for (let i = 0; i < 16; i++) {
+      const start = t + i * 0.05 + (i >= 8 ? 0.2 : 0);
+      tone({ type: 'square', frekvens: i % 2 ? 1300 : 1050, start, varighet: 0.045, volum: 0.05, buss: b });
+    }
+  }),
   skrik: () => effekt((t, b) => {
     for (const f of [1400, 1480, 1975]) tone({ type: 'sawtooth', frekvens: f, tilFrekvens: f / 4, start: t, varighet: 0.8, volum: 0.05, buss: b, vibrato: 80, hold: 0.3 });
     sus({ start: t, varighet: 0.5, volum: 0.2, buss: b, frekvens: 2000 });
